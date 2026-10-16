@@ -1,3 +1,4 @@
 node_modules/
 *.tgz
 screenshot-*.png
+.pnpm-store/

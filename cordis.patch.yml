@@ -1,0 +1,7 @@
+# dsh-plugin-liang-calibrator bundle patch layer.
+# Switch the bundle on from the profile: add "dsh-plugin-liang-calibrator" to
+# `dsh.profile.bundles` in the profile's package.json. Do NOT also insert the
+# row by hand into cordis.patch.yml — one entry id may be declared once.
+- insert:
+    - id: liang-calibrator
+      name: dsh-plugin-liang-calibrator
