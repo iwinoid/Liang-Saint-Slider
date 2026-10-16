@@ -79,8 +79,16 @@ declares it once and the launcher inserts its row.
 dsh plugin --profile web add dsh-plugin-liang-calibrator
 ```
 
-then list it in your profile's `package.json` (`$DSH_HOME/profiles/web/package.json`)
-under `dsh.profile.bundles`:
+The host half imports `@deepseek-ai/schemastery` for its `Config` schema, so a
+`link:` checkout needs its own install first (a registry install pulls it
+automatically):
+
+```sh
+cd /path/to/liang && pnpm install
+```
+
+then list the package in your profile's `package.json`
+(`$DSH_HOME/profiles/web/package.json`) under `dsh.profile.bundles`:
 
 ```json
 "dsh": { "profile": { "bundles": ["dsh-plugin-liang-calibrator"] } }
