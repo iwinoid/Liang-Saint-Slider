@@ -74,7 +74,7 @@ const render = (label, element) => {
 
 const t = (key) => key
 
-// 1. The effort slider renders its glow, flare, knob, and native range for a real combo list.
+/** Six reachable combos: two models × off/high/max, positioned at 0/6/12/18/24/30. */
 const combos = [
   { provider: 'deepseek-official', model: 'a', modelName: 'Flash', effort: 'off', effortName: 'Off', rank: 0, ranks: ['off', 'high', 'max'] },
   { provider: 'deepseek-official', model: 'a', modelName: 'Flash', effort: 'high', effortName: 'High', rank: 1, ranks: ['off', 'high', 'max'] },
@@ -83,24 +83,39 @@ const combos = [
   { provider: 'deepseek-official', model: 'b', modelName: 'Pro', effort: 'high', effortName: 'High', rank: 1, ranks: ['off', 'high', 'max'] },
   { provider: 'deepseek-official', model: 'b', modelName: 'Pro', effort: 'max', effortName: 'Max', rank: 2, ranks: ['off', 'high', 'max'] },
 ]
+
+// 1. The effort slider renders the codex-style surface: fill, nebula, sweep, stars, ticks, knob.
 {
   const markup = render('effort slider', React.createElement(client.LiangEffortSlider, {
     combos, currentIndex: 5, busy: false, onChoose: () => {},
   }))
-  for (const part of ['dsh-liang-slider', 'dsh-liang-track', 'dsh-liang-glow', 'dsh-liang-flare', 'dsh-liang-knob', 'dsh-liang-input', 'dsh-liang-marker', '梁祖']) {
+  for (const part of [
+    'dsh-liang-slider', 'dsh-liang-fill', 'dsh-liang-energy', 'dsh-liang-sweep',
+    'dsh-liang-stars', 'dsh-liang-star', 'dsh-liang-dot', 'dsh-liang-tick',
+    'dsh-liang-knob', 'dsh-liang-input', 'dsh-liang-marker', '梁祖',
+  ]) {
     if (!markup.includes(part)) failures.push(`effort slider: missing ${part}`)
   }
-  if (!markup.includes('data-top="true"')) failures.push('effort slider: top of range not flagged')
-  if (!markup.includes('--dsh-liang-p:1')) failures.push('effort slider: progress variable not set to the last combo')
+  // Full position: energy on, glow, the complete 22-particle field, and a deep-purple fill end.
+  if (!markup.includes('--dsh-liang-energy:1')) failures.push('effort slider: energy not at full')
+  if (!markup.includes('data-energy="true"')) failures.push('effort slider: energy layer not switched on')
+  if ((markup.match(/class="dsh-liang-star"/g) ?? []).length !== 22) failures.push('effort slider: particle field not complete')
+  if (!markup.includes('rgb(76,29,149)')) failures.push('effort slider: fill does not reach the deep end')
+  // One tick per reachable combo, all reached at the last one.
+  if ((markup.match(/class="dsh-liang-tick"/g) ?? []).length !== combos.length) failures.push('effort slider: wrong tick count')
+  if (markup.includes('data-on="false"')) failures.push('effort slider: an unreached tick is left dark at the last combo')
 }
 
-// 2. The top-of-range flag follows the level, not the combo count.
+// 2. The first combo stays clean blue: no nebula, no particles, no glow.
 {
   const markup = render('effort slider at zero', React.createElement(client.LiangEffortSlider, {
     combos, currentIndex: 0, busy: false, onChoose: () => {},
   }))
-  if (markup.includes('data-top="true"')) failures.push('effort slider at zero: wrongly flagged top')
-  if (!markup.includes('--dsh-liang-p:0')) failures.push('effort slider at zero: progress variable not zero')
+  if (!markup.includes('--dsh-liang-energy:0')) failures.push('effort slider at zero: energy not zero')
+  if (!markup.includes('data-energy="false"')) failures.push('effort slider at zero: energy layer not switched off')
+  if ((markup.match(/class="dsh-liang-star"/g) ?? []).length !== 0) failures.push('effort slider at zero: particles rendered in the clean segment')
+  if (!markup.includes('rgb(77,147,248)')) failures.push('effort slider at zero: fill is not the anchor blue')
+  if ((markup.match(/data-on="true"/g) ?? []).length !== 1) failures.push('effort slider at zero: exactly one tick should read as reached')
 }
 
 // 3. The configuration card renders one editable row per configured alias.

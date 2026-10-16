@@ -127,12 +127,17 @@ profile). Without them the calibrator still runs on its built-in aliases.
 - The portrait is drawn from per-level keyframes rather than a scrubbed video:
   the stock static server has no HTTP Range support, so media-element seeking
   silently fails; image keyframes work everywhere.
-- The effort bar is a custom surface: a gradient track, a pixel-radiation canvas
-  clipped left of the knob, a cross flare, and a glowing knob. Dragging follows
-  the pointer continuously and commits the nearest stage on release; the
-  visually hidden native range carries the combo positions so keyboard and
-  assistive access step whole levels. The top stage adds track breathing, knob
-  pulse, and flare pulse, and `prefers-reduced-motion` stops the animation loop.
+- The effort bar follows [`dsh-codex-effort-slider`](https://www.npmjs.com/package/dsh-codex-effort-slider)
+  (Microqian2th): a full-height rounded track whose fill runs blue → violet → deep
+  purple, a nebula layer with a sweep and stardust particles that fade in with
+  position, one tick per reachable combo, and a white knob. Dragging follows the
+  pointer continuously and commits the nearest stage on release; the visually
+  hidden native range carries the combo positions so keyboard and assistive
+  access step whole levels. `prefers-reduced-motion` hides the sweep and slows the
+  particles rather than freezing them.
+- The port is checked against the reference's own exported helpers, not against a
+  transcription: `scripts/test-align.mjs` loads that bundle and compares palette,
+  energy curve, particle field, and geometry across the track.
 - Requires `@deepseek-ai/dsh-client-ui-model-selection` (ships with the default
   web profile) for the shared model directory service. On DSH `0.1.2-rc.1`+
   the seat scope additionally injects `remote` / `remote.session`: the resolver
@@ -165,16 +170,23 @@ match the assembled text exactly once — if the DSH bundle's ModelSelect region
 has drifted, the script **aborts without writing** instead of silently dropping
 the integration. In that case port the integration to the new bundle first.
 
-Smoke tests (no browser needed for either):
+Smoke tests (no browser needed for any of them):
 
 ```sh
 node scripts/test-host.mjs
 node scripts/test-settings.mjs   # channel-alias wiring: form -> store -> Plugins entry
 node scripts/test-render.mjs     # server-renders the seat, the slider, and the settings card
+node scripts/test-align.mjs      # slider style vs the reference implementation (self-skips)
 ```
 
 `test-settings.mjs` and `test-render.mjs` need the package installed
 (`pnpm install`), which is what pulls `@deepseek-ai/schemastery` and React.
+`test-align.mjs` reads `dsh-codex-effort-slider`'s bundle and skips unless one
+is present; point `LIANG_REFERENCE` at its `lib/client.js` to run it:
+
+```sh
+LIANG_REFERENCE=/path/to/dsh-codex-effort-slider/lib/client.js node scripts/test-align.mjs
+```
 
 ## Portraits
 
