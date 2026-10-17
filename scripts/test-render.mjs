@@ -156,6 +156,16 @@ const combos = [
   if (!empty.includes('settings.resetAliases')) failures.push('settings card empty: no restore control')
 }
 
+// 3c. A busy slider keeps its range focusable: aria-disabled, never a real disabled
+//     attribute, because disabling a focused control drops focus and blurs the card shut.
+{
+  const markup = render('busy slider', React.createElement(client.LiangEffortSlider, {
+    combos, currentIndex: 3, busy: true, onChoose: () => {},
+  }))
+  if (!markup.includes('aria-disabled="true"')) failures.push('busy slider: aria-disabled not set')
+  if (/<input[^>]*\sdisabled/.test(markup)) failures.push('busy slider: the range is really disabled and would drop focus')
+}
+
 // 4. A read-only deployment still renders, with the editor disabled.
 {
   const markup = render('settings card read-only', React.createElement(client.LiangSettingsCard, {
@@ -193,4 +203,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: render smoke (5 groups)')
+console.log('PASS: render smoke (6 groups)')
