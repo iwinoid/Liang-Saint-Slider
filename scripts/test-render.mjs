@@ -17,10 +17,17 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const source = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
 
 let factory
+/** Style tags the bundle injects, captured so the shipped CSS can be asserted. */
+const injectedCss = []
 globalThis.window = {
   __ModuleLoader__: {
     load: ({ id, factory: loaded }) => { factory ??= { id, factory: loaded } },
   },
+}
+globalThis.document = {
+  querySelectorAll: () => [],
+  createElement: () => ({ dataset: {}, textContent: '' }),
+  head: { appendChild: (tag) => { injectedCss.push(tag.textContent) } },
 }
 new Function(source)()
 
@@ -197,9 +204,46 @@ const combos = [
   if (!markup.includes('Muse Spark 1.3')) failures.push('model seat: model name missing')
 }
 
+// 7. Position and combo must invert each other for every catalog size the bar can
+//    address. The component parks the knob on a combo canonical position after a
+//    commit and re-derives the shown combo from it, so a position that does not map
+//    back to its own combo makes the portrait disagree with the selection.
+{
+  const { comboIndexForPos, posForCombo } = client.__test
+  const broken = []
+  for (let count = 1; count <= 31; count += 1) {
+    for (let index = 0; index < count; index += 1) {
+      const position = posForCombo(index, count)
+      const back = comboIndexForPos(position, count)
+      if (back !== index) broken.push(`${count} combos: ${index} -> ${position} -> ${back}`)
+    }
+  }
+  if (broken.length > 0) failures.push(`combo round-trip: ${broken.slice(0, 3).join(", ")}`)
+  if (posForCombo(0, 6) !== 0 || posForCombo(5, 6) !== 30) failures.push("combo round-trip: the six anchors moved")
+  if (comboIndexForPos(5, 6) !== 1) failures.push("combo round-trip: a release does not snap to the nearest stage")
+}
+
+// 8. The painted geometry comes from the JS constants, so the two cannot drift. The
+//    stylesheet is built at runtime, so assert on what was actually injected.
+{
+  // A render triggers the injection; group 1 already rendered a slider.
+  const sheet = injectedCss.join("")
+  if (sheet === "") failures.push("geometry: no stylesheet was injected")
+  const { TUBE_HEIGHT, KNOB_SIZE } = client.__test
+  if (!sheet.includes(`--dsh-liang-tube:${TUBE_HEIGHT}px`)) failures.push("geometry: the tube height is not bound to its constant")
+  if (!sheet.includes(`--dsh-liang-knob:${KNOB_SIZE}px`)) failures.push("geometry: the knob size is not bound to its constant")
+  const sliderRule = sheet.match(/\.dsh-liang-slider\{[^}]*\}/)?.[0] ?? ""
+  if (/height:\d+px/.test(sliderRule)) failures.push("geometry: the slider rule still hardcodes a tube height")
+  const knobRule = sheet.match(/\.dsh-liang-knob\{[^}]*\}/)?.[0] ?? ""
+  if (/width:\d+px/.test(knobRule)) failures.push("geometry: the knob rule still hardcodes a size")
+  if (!sheet.includes("var(--dsh-liang-knob)")) failures.push("geometry: the knob does not read its variable")
+  // Invariants the geometry depends on.
+  if (!(KNOB_SIZE < TUBE_HEIGHT)) failures.push("geometry: the knob must be narrower than the tube")
+}
+
 if (failures.length > 0) {
   console.error('FAIL')
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: render smoke (6 groups)')
+console.log('PASS: render smoke (8 groups)')

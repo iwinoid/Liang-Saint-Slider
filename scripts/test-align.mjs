@@ -109,12 +109,26 @@ const close = (a, b, epsilon = 1e-9) => Math.abs(a - b) <= epsilon
     check('starBrightnessFor', close(reference.__internals.starBrightnessFor(at), ported.__test.starBrightnessFor(at)), `#${at}`)
     check('starHash01', close(reference.__internals.starHash01(at, 61), ported.__test.starHash01(at, 61)), `#${at}`)
     const speed = reference.__internals.speedFor(0.8)
-    check('starDurationFor', close(reference.__internals.starDurationFor(at, speed), ported.__test.starDurationFor(at, speed)), `#${at}`)
-    const duration = reference.__internals.starDurationFor(at, speed)
-    check('starDelayFor', close(reference.__internals.starDelayFor(at, duration), ported.__test.starDelayFor(at, duration)), `#${at}`)
+    // The port holds animation-duration CONSTANT and carries speed on playbackRate,
+    // because changing a CSS animation's duration rescales progress against the
+    // preserved local time and makes a descending drag run the particles backwards.
+    // What must still match the reference is what you SEE: the period of one sweep.
+    const referenceDuration = reference.__internals.starDurationFor(at, speed)
+    const portedDuration = ported.__test.STAR_BASE_DURATION / ported.__test.starRateFor(at, speed, false)
+    check('star effective period', close(referenceDuration, portedDuration), `#${at}`)
+    // Phase is what a star's negative delay encodes; the raw delay value may differ
+    // (it is measured against a constant duration here), the phase fraction may not.
+    const referencePhase = Math.abs(reference.__internals.starDelayFor(at, referenceDuration)) / referenceDuration
+    const portedPhase = Math.abs(ported.__test.starDelayFor(at, ported.__test.STAR_BASE_DURATION)) / ported.__test.STAR_BASE_DURATION
+    check('star phase', close(referencePhase, portedPhase), `#${at}`)
   }
   check('star count follows energy', reference.__internals.starCountFor(0.5) === ported.__test.starCountFor(0.5))
   check('star layer opacity', close(reference.__internals.starLayerOpacityFor(0.5), ported.__test.starLayerOpacityFor(0.5)))
+  // Reduced motion must stay a slowdown, not a freeze, and must also ride the rate so
+  // toggling it cannot rescale a running animation either.
+  check('reduced motion slows the period',
+    ported.__test.STAR_BASE_DURATION / ported.__test.starRateFor(0, 1, true)
+      > ported.__test.STAR_BASE_DURATION / ported.__test.starRateFor(0, 1, false))
 }
 
 // 5. The value-text rule: Off keeps the untouched tone, everything else tints.

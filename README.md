@@ -149,30 +149,24 @@ everywhere.
 Maintain `lib/client.js` by hand. There is no build step. Edit the file and
 restart `dsh web`.
 
-The earlier assembler, `scripts/assemble-client.py`, rebuilt `lib/client.js` from
-a patched DSH checkout. It cannot reproduce the current file and it overwrites
-it. Do not run it.
-
-`scripts/test-client.cjs` and `scripts/test-host.mjs` are historical too. They
-depend on a browser automation package and a fixed home directory path.
-
 Install the package first. That supplies `@deepseek-ai/schemastery` and React:
 
 ```sh
 pnpm install
 ```
 
-Run the smoke tests:
+Run the tests:
 
 ```sh
-node scripts/test-settings.mjs   # settings card wiring
+node scripts/test-host.mjs       # the asset route, traversal, and fiber disposal
+node scripts/test-settings.mjs   # settings card wiring and the seat inject face
 node scripts/test-render.mjs     # renders the seat, the slider, and the settings card
 node scripts/test-align.mjs      # slider palette against the reference bundle
 ```
 
 `test-align.mjs` loads the bundle of `dsh-codex-effort-slider` and compares the
-exported helpers. The package is not vendored. The test skips unless you point
-it at a copy:
+exported helpers. The package is not vendored, so the test reports SKIP and exits
+0 unless you point it at a copy. Treat that SKIP as "not run", not as a pass:
 
 ```sh
 LIANG_REFERENCE=/path/to/dsh-codex-effort-slider/lib/client.js node scripts/test-align.mjs

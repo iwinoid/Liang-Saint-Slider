@@ -191,14 +191,55 @@ function mountSettings(formValue) {
   check('clearing every row writes an empty map', JSON.stringify(ops?.[0].value) === JSON.stringify({}))
 }
 
-// 7. The seat scope still opens without the settings services present.
+// 7. The seat registers the shadowing entry, and its select reports the directory's
+//    own verdict. The directory RESOLVES a refusal, so collapsing the result to a
+//    boolean would report every failure as a success and close the menu on it.
 {
-  check('seat scope opened', scopes.some(({ services }) => services.includes('modelDirectories')))
+  const registrations = []
+  const scope = {
+    slots: {
+      inject: (_name, register) => register(),
+      register: (options, component) => { registrations.push({ options, component }); return () => {} },
+    },
+    sessions: { subagentAddress: () => undefined },
+    modelDirectories: {
+      directoryFor: () => ({
+        store: { getSnapshot: () => ({}), subscribe: () => () => {} },
+        load: async () => {},
+        select: async (selection) => selection.model === 'refused' ? { ok: false, error: 'nope' } : { ok: true },
+      }),
+    },
+    remote: {},
+    effect: (fn) => fn(),
+  }
+  scopeOf(['slots', 'sessions', 'modelDirectories'])(scope)
+  check('seat registers one entry', registrations.length === 1)
+  const [entry] = registrations
+  check('seat shadows the stock slot', entry.options.name === 'conversation.input.model')
+  check('seat renders lowest priority', entry.options.priority === -1)
+  const face = entry.options.inject('session-1')
+  check('seat injects the shared directory store', typeof face.directory?.subscribe === 'function')
+  check('seat injects the alias store', typeof face.aliases?.subscribe === 'function')
+  const accepted = await face.select({ provider: 'p', model: 'ok' })
+  check('an accepted select yields the directory result', accepted?.ok === true)
+  const refused = await face.select({ provider: 'p', model: 'refused' })
+  check('a refused select keeps ok:false', refused?.ok === false)
+  check('a refusal keeps its error', refused?.error === 'nope')
+
+  // An unavailable seat must refuse rather than resolve undefined.
+  const blocked = scope
+  blocked.sessions = { subagentAddress: () => 'subagent-address' }
+  scopeOf(['slots', 'sessions', 'modelDirectories'])(blocked)
+  const blockedFace = registrations.at(-1).options.inject('session-2')
+  check('an unavailable seat reports available:false', blockedFace.available === false)
+  const blockedResult = await blockedFace.select({ provider: 'p', model: 'ok' })
+  check('an unavailable seat refuses with ok:false', blockedResult?.ok === false)
 }
+
 
 if (failures.length > 0) {
   console.error('FAIL')
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: settings card wiring (7 groups)')
+console.log('PASS: settings card wiring (7 groups, incl. the seat face)')
