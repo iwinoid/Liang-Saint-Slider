@@ -101,24 +101,29 @@ and restart `dsh web`.
 
 ## Configure
 
-Channel aliases (the short labels the backend toggle row prints) are edited on
-the plugin's own page: **sidebar → Plugins → Liang Calibrator**. The map is a
-volatile `Config` field, so the page writes through the stock settings form and
-the value is persisted into the profile's Cordis patch; a provider missing from
-the map falls back to its catalog display name. Changing it takes effect without
-a restart.
+The calibrator contributes a card to **Settings → General**:
 
-The page only appears while the Host serves this plugin's namespace, i.e. when
+- **渠道别名** — a row per provider, mapping a provider id to the short label the
+  backend toggle row prints. The provider list is read from the live model
+  catalog, so a renamed or added route needs no code change; a row whose
+  provider left the catalog keeps its own option instead of disappearing.
+- **选完后停留** — how long the menu stays open after a slider commit settles
+  (`dismissDelayMs`, milliseconds; 0 closes at once). Dragging again cancels the
+  pending close.
+
+Both fields are volatile `Config`, so the card writes through the stock settings
+form into the profile’s Cordis patch, and changes take effect without a restart.
+The card only appears while the Host serves this plugin’s namespace, i.e. when
 the profile composes `@deepseek-ai/dsh-settings` and
-`@deepseek-ai/dsh-client-ui-plugin-manager` (both ship with the default web
+`@deepseek-ai/dsh-client-ui-settings-general` (both ship with the default web
 profile). Without them the calibrator still runs on its built-in aliases.
 
 ## How it works
 
 - **Host half** (`lib/index.js`): serves the 31 portrait keyframes under
   `/liang-assets/frames/` through the profile's `webServer` service — no CDN,
-  no patched static server. It also declares the volatile `backendAliases`
-  `Config` field the browser half edits.
+  no patched static server. It also declares the volatile `backendAliases` and
+  `dismissDelayMs` `Config` fields the browser half edits.
 - **Browser half** (`lib/client.js`): a standard `dsh.client` bundle that
   registers the `conversation.input.model` slot at **priority −1**. Slot
   rendering is priority-based ("lowest renders"), so the calibrator shadows the
@@ -127,26 +132,34 @@ profile). Without them the calibrator still runs on its built-in aliases.
 - The portrait is drawn from per-level keyframes rather than a scrubbed video:
   the stock static server has no HTTP Range support, so media-element seeking
   silently fails; image keyframes work everywhere.
-- The effort bar follows [`dsh-codex-effort-slider`](https://www.npmjs.com/package/dsh-codex-effort-slider)
-  (Microqian2th): a full-height rounded track whose fill runs blue → violet → deep
-  purple, a nebula layer with a sweep and stardust particles that fade in with
-  position, one tick per reachable combo, and a white knob. Dragging follows the
-  pointer continuously and commits the nearest stage on release; the visually
-  hidden native range carries the combo positions so keyboard and assistive
-  access step whole levels. `prefers-reduced-motion` hides the sweep and slows the
-  particles rather than freezing them.
+- The effort bar is three parts: a **tube** (28px tall, radius-14 round ends), a
+  **colour bar**, and a **knob** (24px — narrower than the tube, drawn with an
+  inner 1px stroke and no outer shadow). The knob centre travels between the two
+  end-semicircle centres, so it insets by the tube radius (14), not its own. The
+  colour bar's left cap is pinned to the tube's inner start while its right cap
+  centre rides the knob, so at position 0 the bar is a perfect circle and at the
+  end it spans the whole tube — wrapping the knob the entire way.
+- Its palette follows [`dsh-codex-effort-slider`](https://www.npmjs.com/package/dsh-codex-effort-slider)
+  (Microqian2th): the fill runs blue → violet → deep purple, a nebula layer with a
+  2.4s sweep and stardust particles fades in with position, and the readout tints
+  with it. Dragging follows the pointer continuously and commits the nearest stage
+  on release; the visually hidden native range carries the combo positions so
+  keyboard and assistive access step whole levels. `prefers-reduced-motion` hides
+  the sweep and slows the particles rather than freezing them.
 - The port is checked against the reference's own exported helpers, not against a
   transcription: `scripts/test-align.mjs` loads that bundle and compares palette,
-  energy curve, particle field, and geometry across the track.
+  energy curve, and particle field across the track. Geometry deliberately
+  diverges (24px knob inside a 28px tube) and is covered by the render test.
 - Requires `@deepseek-ai/dsh-client-ui-model-selection` (ships with the default
   web profile) for the shared model directory service. On DSH `0.1.2-rc.1`+
   the seat scope additionally injects `remote` / `remote.session`: the resolver
   runs `directoryFor` behind the caller-ctx tracker, and without them the seat
   entry crashes (`cannot get property "remote.session" without inject`),
   abdicates, and the stock selector silently renders instead.
-- The Plugins-page entry, its title and description, and the 梁祖 icon come from
-  the package manifest: `icon` points at a 128px WebP derived from `frame-30`,
-  and `locale/{en,zh}.json` carry `meta.title` / `meta.description`.
+- The bundle's own card — its 梁祖 icon, title, and description — comes from the
+  package manifest: `icon` points at a 128px WebP derived from `frame-30`, and
+  `locale/{en,zh}.json` carry `meta.title` / `meta.description`. The
+  configuration card itself lives in Settings, not on that page.
 
 ## Uninstall
 

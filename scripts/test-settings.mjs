@@ -1,11 +1,11 @@
 /**
- * Channel-alias wiring smoke test — no browser, no React renderer.
+ * Settings-card wiring smoke test — no browser, no React renderer.
  *
- * Loads the browser half the way the DSH module table does, drives `apply`
- * with a fake client context, and asserts the two things the configuration
- * feature promises: the alias store is seeded from the settings form (falling
- * back to the built-in aliases when the form answers nothing), and the
- * Plugins page gets exactly one entry for this plugin's namespace.
+ * Loads the browser half the way the DSH module table does, drives `apply` with
+ * a fake client context, and asserts what the configuration card promises: the
+ * alias rows, the linger delay, and the provider list all come from their real
+ * sources (the settings form and the model catalog), and the card lands in the
+ * General settings list.
  *
  * Run: node scripts/test-settings.mjs
  */
@@ -71,14 +71,19 @@ const scopeOf = (wanted) => {
   return found.callback
 }
 
-/** Drive the settings scope against one form snapshot and return what it registered. */
+const failures = []
+const check = (label, condition) => { if (!condition) failures.push(label) }
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+/** Drive the settings scope against one form value and return what it registered. */
 function mountSettings(formValue) {
   const registrations = []
-  const subscribers = []
+  const mutations = []
   const form = {
     getSnapshot: () => ({ status: 'ready', writable: true, revision: 7, value: formValue }),
-    subscribe: (fn) => { subscribers.push(fn); return () => {} },
-    mutate: async () => true,
+    subscribe: () => () => {},
+    mutate: async (ops) => { mutations.push(ops); return true },
   }
   const scope = {
     configForms: {
@@ -92,68 +97,89 @@ function mountSettings(formValue) {
     effect: (fn) => fn(),
   }
   scopeOf(['configForms', 'slots'])(scope)
-  return { registrations, subscribers, form }
+  return { registrations, mutations, store: registrations[0].options.inject().hooks.liangSettings }
 }
 
-const failures = []
-const check = (label, condition) => { if (!condition) failures.push(label) }
-
-// 1. A configured map reaches the alias store the page and the toggle row share.
+// 1. A configured map reaches the alias store the card and the toggle row share.
 {
-  const { registrations } = mountSettings({ backendAliases: { 'opencode-go': 'GO', opencode: 'ZEN' } })
-  check('exactly one Plugins-page entry', registrations.length === 1)
+  const { registrations, store } = mountSettings({ backendAliases: { 'opencode-go': 'GO', opencode: 'ZEN' } })
+  check('exactly one Settings card', registrations.length === 1)
   const [entry] = registrations
-  check('entry lands in plugins.item', entry.options.name === 'plugins.item')
-  check('entry id is the settings namespace', entry.options.id === 'liang-calibrator')
-  check('entry carries a label', entry.options.label() === 'settings.title')
-  const face = entry.options.inject()
-  check('entry injects the settings hooks compartment', face.hooks?.liangSettings !== undefined)
-  check('configured aliases seeded', JSON.stringify(face.hooks.liangSettings.getSnapshot().rows)
+  check('card lands in the General settings list', entry.options.name === 'settings.general.item')
+  check('card id is the settings namespace', entry.options.id === 'liang-calibrator')
+  check('card is ordered in the list', typeof entry.options.order === 'number')
+  check('configured aliases seeded', JSON.stringify(store.getSnapshot().rows)
     === JSON.stringify([{ provider: 'opencode-go', alias: 'GO' }, { provider: 'opencode', alias: 'ZEN' }]))
 }
 
 // 2. An unanswered form falls back to the built-in aliases, never to an empty row list.
 {
-  const { registrations } = mountSettings(undefined)
-  const rows = registrations[0].options.inject().hooks.liangSettings.getSnapshot().rows
+  const { store } = mountSettings(undefined)
+  const rows = store.getSnapshot().rows
   check('fallback keeps the built-in aliases', rows.some((row) => row.provider === 'deepseek-official' && row.alias === 'DS'))
   check('fallback keeps the opencode-go alias', rows.some((row) => row.provider === 'opencode-go' && row.alias === 'OCG'))
 }
 
 // 3. A malformed section is dropped rather than rendered as a broken row.
 {
-  const { registrations } = mountSettings({ backendAliases: { good: 'G', bad: 5, worse: null } })
-  const rows = registrations[0].options.inject().hooks.liangSettings.getSnapshot().rows
-  check('malformed aliases dropped', JSON.stringify(rows) === JSON.stringify([{ provider: 'good', alias: 'G' }]))
+  const { store } = mountSettings({ backendAliases: { good: 'G', bad: 5, worse: null } })
+  check('malformed aliases dropped', JSON.stringify(store.getSnapshot().rows) === JSON.stringify([{ provider: 'good', alias: 'G' }]))
 }
 
-// 4. Save writes the whole map under the volatile field name.
+// 4. The linger delay comes from the form, and a missing one falls back to the shipped default.
 {
-  let seen
-  const registrations = []
-  const scope = {
-    configForms: {
-      get: () => ({
-        getSnapshot: () => ({ status: 'ready', writable: true, revision: 7, value: {} }),
-        subscribe: () => () => {},
-        mutate: async (ops) => { seen = ops; return true },
-      }),
-      whileServed: (_namespaces, register) => register(new Set(['liang-calibrator'])),
+  check('configured linger seeded', mountSettings({ backendAliases: { a: 'A' }, dismissDelayMs: 8000 }).store.getSnapshot().dismissMs === 8000)
+  check('linger falls back to the default', mountSettings({ backendAliases: { a: 'A' } }).store.getSnapshot().dismissMs === 3000)
+  check('linger is clamped to the accepted range', mountSettings({ backendAliases: { a: 'A' }, dismissDelayMs: 9e9 }).store.getSnapshot().dismissMs === 60000)
+  check('at or below zero means close at once', mountSettings({ backendAliases: { a: 'A' }, dismissDelayMs: -1 }).store.getSnapshot().dismissMs === 0)
+  check('a non-numeric linger falls back to the default', mountSettings({ backendAliases: { a: 'A' }, dismissDelayMs: 'soon' }).store.getSnapshot().dismissMs === 3000)
+}
+
+// 5. The provider list comes from the live catalog, not from typing.
+{
+  const { store } = mountSettings({ backendAliases: { a: 'A' } })
+  check('providers start empty', store.getSnapshot().providers.length === 0)
+  let subscribed
+  const remoteScope = {
+    remote: {
+      $on: (_event, listener) => { subscribed = listener; return () => {} },
+      session: {
+        modelCatalog: async () => ({
+          ok: true,
+          value: {
+            groups: [
+              { id: 'deepseek-official', name: 'DeepSeek', models: [] },
+              { id: 'opencode-go', name: 'OpenCode Go', models: [] },
+            ],
+            failures: [],
+          },
+        }),
+      },
     },
-    slots: { inject: (_name, register) => register(), register: (options) => { registrations.push({ options }); return () => {} } },
     effect: (fn) => fn(),
   }
-  scopeOf(['configForms', 'slots'])(scope)
-  await registrations[0].options.inject().save([{ provider: 'a', alias: 'A' }, { provider: '', alias: 'ignored' }])
-  check('save writes one set op', seen?.length === 1 && seen[0].op === 'set')
-  check('save targets the volatile field', JSON.stringify(seen?.[0].path) === JSON.stringify(['backendAliases']))
-  check('blank provider rows are not persisted', JSON.stringify(seen?.[0].value) === JSON.stringify({ a: 'A' }))
+  scopeOf(['remote', 'remote.session'])(remoteScope)
+  await flush()
+  check('providers read from the catalog', store.getSnapshot().providers.length === 2)
+  check('provider carries its display name', store.getSnapshot().providers[1]?.name === 'OpenCode Go')
+  check('catalog refresh is subscribed', typeof subscribed === 'function')
+  check('providers do not disturb the alias rows', store.getSnapshot().rows.length === 1)
 }
 
-// 5. The seat scope still opens without the settings services present.
+// 6. Save writes both fields and drops blank provider rows.
 {
-  const seat = scopes.find(({ services }) => services.includes('modelDirectories'))
-  check('seat scope opened', seat !== undefined)
+  const { registrations, mutations } = mountSettings({ backendAliases: {} })
+  await registrations[0].options.inject().save([{ provider: 'a', alias: 'A' }, { provider: '', alias: 'ignored' }], 4500)
+  const ops = mutations.at(-1)
+  check('save writes both fields', ops?.length === 2 && ops.every((op) => op.op === 'set'))
+  check('aliases target their field', JSON.stringify(ops?.[0].path) === JSON.stringify(['backendAliases']))
+  check('blank provider rows are not persisted', JSON.stringify(ops?.[0].value) === JSON.stringify({ a: 'A' }))
+  check('save carries the linger', JSON.stringify(ops?.[1].path) === JSON.stringify(['dismissDelayMs']) && ops[1].value === 4500)
+}
+
+// 7. The seat scope still opens without the settings services present.
+{
+  check('seat scope opened', scopes.some(({ services }) => services.includes('modelDirectories')))
 }
 
 if (failures.length > 0) {
@@ -161,4 +187,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: channel-alias wiring (5 groups)')
+console.log('PASS: settings card wiring (7 groups)')

@@ -101,6 +101,9 @@ const combos = [
   if (!markup.includes('data-energy="true"')) failures.push('effort slider: energy layer not switched on')
   if ((markup.match(/class="dsh-liang-star"/g) ?? []).length !== 22) failures.push('effort slider: particle field not complete')
   if (!markup.includes('rgb(76,29,149)')) failures.push('effort slider: fill does not reach the deep end')
+  // 位置 1 时彩条铺满管道
+  if (!markup.includes('width:calc(28px + 1 * (100% - 28px))')) failures.push('effort slider: fill does not span the tube')
+  if (markup.includes('0 1px 5px rgba(0,0,0,.34)')) failures.push('effort slider: knob still carries an outer shadow')
   // One tick per reachable combo, all reached at the last one.
   if ((markup.match(/class="dsh-liang-tick"/g) ?? []).length !== combos.length) failures.push('effort slider: wrong tick count')
   if (markup.includes('data-on="false"')) failures.push('effort slider: an unreached tick is left dark at the last combo')
@@ -115,6 +118,8 @@ const combos = [
   if (!markup.includes('data-energy="false"')) failures.push('effort slider at zero: energy layer not switched off')
   if ((markup.match(/class="dsh-liang-star"/g) ?? []).length !== 0) failures.push('effort slider at zero: particles rendered in the clean segment')
   if (!markup.includes('rgb(77,147,248)')) failures.push('effort slider at zero: fill is not the anchor blue')
+  // 位置 0 时彩条宽度 = 2R = 28px，也就是一个正圆
+  if (!markup.includes('width:calc(28px + 0 * (100% - 28px))')) failures.push('effort slider at zero: fill is not a circle')
   if ((markup.match(/data-on="true"/g) ?? []).length !== 1) failures.push('effort slider at zero: exactly one tick should read as reached')
 }
 
@@ -123,12 +128,14 @@ const combos = [
   const snapshot = {
     status: 'ready', writable: true,
     rows: [{ provider: 'opencode-go', alias: 'OCG' }, { provider: 'opencode', alias: 'OC' }],
+    providers: [{ id: 'opencode-go', name: 'OpenCode Go' }, { id: 'opencode', name: 'OpenCode Zen' }],
+    dismissMs: 3000,
   }
   const markup = render('settings card', React.createElement(client.LiangSettingsCard, {
     view: 'page', t, save: async () => true,
     useLiangSettings: (selector) => selector(snapshot),
   }))
-  for (const part of ['dsh-liang-cfg', 'opencode-go', 'OCG']) {
+  for (const part of ['dsh-liang-cfg', 'opencode-go', 'OpenCode Go', 'OCG', 'liang-dismiss-delay', 'dsh-liang-cfg-title']) {
     if (!markup.includes(part)) failures.push(`settings card: missing ${part}`)
   }
   if ((markup.match(/class="dsh-liang-cfg-row"/g) ?? []).length !== 2) failures.push('settings card: wrong row count')
@@ -142,7 +149,7 @@ const combos = [
 {
   const markup = render('settings card read-only', React.createElement(client.LiangSettingsCard, {
     view: 'page', t, save: async () => true,
-    useLiangSettings: (selector) => selector({ status: 'ready', writable: false, rows: [{ provider: 'a', alias: 'A' }] }),
+    useLiangSettings: (selector) => selector({ status: 'ready', writable: false, rows: [{ provider: 'a', alias: 'A' }], providers: [], dismissMs: 3000 }),
   }))
   if (!markup.includes('disabled')) failures.push('settings card read-only: no disabled control')
 }
