@@ -112,12 +112,20 @@ function mountSettings(formValue) {
     === JSON.stringify([{ provider: 'opencode-go', alias: 'GO' }, { provider: 'opencode', alias: 'ZEN' }]))
 }
 
-// 2. An unanswered form falls back to the built-in aliases, never to an empty row list.
+// 2. An unanswered namespace falls back to the built-in aliases...
 {
   const { store } = mountSettings(undefined)
   const rows = store.getSnapshot().rows
   check('fallback keeps the built-in aliases', rows.some((row) => row.provider === 'deepseek-official' && row.alias === 'DS'))
   check('fallback keeps the opencode-go alias', rows.some((row) => row.provider === 'opencode-go' && row.alias === 'OCG'))
+}
+
+// 2b. ...but an ANSWERED empty map stays empty: deleting every row is a decision.
+{
+  const { store } = mountSettings({ backendAliases: {} })
+  check('an emptied map stays empty', store.getSnapshot().rows.length === 0)
+  const { store: gone } = mountSettings({ backendAliases: { a: 'A' } })
+  check('a non-empty map is still read', gone.getSnapshot().rows.length === 1)
 }
 
 // 3. A malformed section is dropped rather than rendered as a broken row.
@@ -175,6 +183,35 @@ function mountSettings(formValue) {
   check('aliases target their field', JSON.stringify(ops?.[0].path) === JSON.stringify(['backendAliases']))
   check('blank provider rows are not persisted', JSON.stringify(ops?.[0].value) === JSON.stringify({ a: 'A' }))
   check('save carries the linger', JSON.stringify(ops?.[1].path) === JSON.stringify(['dismissDelayMs']) && ops[1].value === 4500)
+}
+
+// 6b. Restoring the built-ins clears the user section instead of writing an empty map.
+{
+  const unset = []
+  const written = []
+  const registrations = []
+  const scope = {
+    configForms: {
+      get: () => ({
+        getSnapshot: () => ({ status: 'ready', writable: true, revision: 7, value: { backendAliases: {} } }),
+        subscribe: () => () => {},
+        mutate: async (ops) => { written.push(ops); return true },
+        unset: async (field) => { unset.push(field); return true },
+      }),
+      whileServed: (_namespaces, register) => register(new Set(['liang-calibrator'])),
+    },
+    slots: {
+      inject: (_name, register) => register(),
+      register: (options) => { registrations.push(options); return () => {} },
+    },
+    effect: (fn) => fn(),
+  }
+  scopeOf(['configForms', 'slots'])(scope)
+  const face = registrations[0].inject()
+  check('an emptied map stays empty in the store', face.hooks.liangSettings.getSnapshot().rows.length === 0)
+  await face.resetAliases()
+  check('reset unsets the alias field', JSON.stringify(unset) === JSON.stringify(['backendAliases']))
+  check('reset does not write an empty map', written.length === 0)
 }
 
 // 7. The seat scope still opens without the settings services present.

@@ -135,14 +135,25 @@ const combos = [
     view: 'page', t, save: async () => true,
     useLiangSettings: (selector) => selector(snapshot),
   }))
-  for (const part of ['dsh-liang-cfg', 'opencode-go', 'OpenCode Go', 'OCG', 'liang-dismiss-delay', 'dsh-liang-cfg-title']) {
+  for (const part of ['dsh-liang-cfg', 'opencode-go', 'OpenCode Go', 'OCG', 'liang-dismiss-delay', 'dsh-liang-cfg-title', 'settings.resetAliases']) {
     if (!markup.includes(part)) failures.push(`settings card: missing ${part}`)
   }
   if ((markup.match(/class="dsh-liang-cfg-row"/g) ?? []).length !== 2) failures.push('settings card: wrong row count')
+  if (markup.includes('settings.noAliases')) failures.push('settings card: empty-state hint shown with rows present')
   const summary = render('settings summary', React.createElement(client.LiangSettingsCard, {
     view: 'summary', t, save: async () => true, useLiangSettings: (selector) => selector(snapshot),
   }))
   if (summary !== 'settings.description') failures.push(`settings summary: unexpected text ${summary}`)
+}
+
+// 3b. An emptied map renders the empty-state hint instead of falling back to defaults.
+{
+  const empty = render('settings card empty', React.createElement(client.LiangSettingsCard, {
+    view: 'page', t, save: async () => true, resetAliases: async () => true,
+    useLiangSettings: (selector) => selector({ status: 'ready', writable: true, rows: [], providers: [], dismissMs: 3000 }),
+  }))
+  if (!empty.includes('settings.noAliases')) failures.push('settings card empty: no empty-state hint')
+  if (!empty.includes('settings.resetAliases')) failures.push('settings card empty: no restore control')
 }
 
 // 4. A read-only deployment still renders, with the editor disabled.
