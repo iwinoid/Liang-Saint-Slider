@@ -1,215 +1,205 @@
 # dsh-plugin-liang-calibrator
 
-**滑动变祖器** — the [liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator) as the DeepSeek Harness **model + thinking-effort selector**.
+滑动变祖器: the liang-intensity-calibrator as the DSH model and effort selector.
 
-[![Preview](https://pbs.twimg.com/amplify_video_thumb/2087967285621542912/img/Vk2-2wdcV3s2ITIO.jpg)](https://x.com/BruzWJ/status/2087968145114120691)
+A 31-level slider opens from the model seat in the composer. Drag the bar to pick
+a model and a reasoning effort in one gesture. The stage portrait changes as you
+go.
 
-Clicking the composer's model seat opens the 31-level calibrator directly. The six
-stages map 1:1 onto the DeepSeek model catalog's combinations (2 models × 3
-thinking levels = 6 = the six stages):
+## Table of Contents
 
-| Stage | Position | Model · Thinking level |
-| --- | --- | --- |
-| 小难梁 | 00 | DeepSeek-V4-Flash-Vision-Exp · Off |
-| 牢梁 | 06 | DeepSeek-V4-Flash-Vision-Exp · High |
-| 梁子 | 12 | DeepSeek-V4-Flash-Vision-Exp · Max |
-| 梁圣 | 18 | DeepSeek-V4-Pro · Off |
-| 梁神 | 24 | DeepSeek-V4-Pro · High |
-| 梁祖 | 30 | DeepSeek-V4-Pro · Max |
+- [Background](#background)
+- [Install](#install)
+- [Usage](#usage)
+- [Configure](#configure)
+- [The slider](#the-slider)
+- [Compatibility](#compatibility)
+- [Development](#development)
+- [Thanks](#thanks)
+- [Contributing](#contributing)
+- [License](#license)
 
-第一档模型是实验性视觉模型 `deepseek-v4-flash-vision-exp`（比标准 flash 更强且支持多模态）；标准 flash 默认隐藏，改回 settings 的 models 列表即可恢复。
+## Background
 
-### Multiple backends (官方 API + OpenCode Go 订阅)
+[liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator)
+is a joke UI. One slider covers levels 0 to 30 and drives 31 portraits, from
+小难梁 to 梁祖.
 
-The slider is scoped to the **active backend** (provider), so the six stages keep
-their meaning no matter how many providers the catalog holds. Each backend maps
-its own 2 models × 3 stage efforts:
+This package puts that slider on the model seat in the DSH composer. The same
+slider also picks the model and the thinking effort.
 
-| Backend | Stage efforts (小难梁 → 梁祖) |
-| --- | --- |
-| 官方 `deepseek-official` | Off · High · Max |
-| `opencode-go` (订阅) | Minimal · High · Max (订阅没有 Off，最低档顶替) |
-
-后端切换行的按钮使用简称（悬浮 title 仍显示全名）：
-
-| 后端 | 简称 |
-| --- | --- |
-| 官方 `deepseek-official` | DS |
-| `opencode-go` | OCG |
-| `opencode` | OC |
-
-这三条简称只是**内置默认值**——它们是插件配置里的 `backendAliases` 字段，在
-**侧边栏 → 插件 → 滑动变祖器** 那一页改（见下面的 Configure），改完即时生效，不用重启。
-
-其他 provider 回退显示原名。实验模型改名、provider 删除都无需改插件——目录（settings.yaml）是唯一真源。
-
-A quick **backend toggle row** beneath the slider switches between them while
-**keeping the current stage** (e.g. 官方 Pro·Max 梁祖 ⇄ 订阅 Pro·Max 梁祖). The
-trigger tooltip shows the active backend. With any other catalog the same rule
-applies per provider (off/lowest, high, max/highest); a small **Model** row
-beneath the slider still drills into the plain model list across all providers.
-
-Configuring the subscription is a `settings.yaml` matter, not a plugin change —
-the pi-ai adapter ships an `opencode-go` catalog route (`https://opencode.ai/zen/go/v1`):
-
-```yaml
-llm-pi-ai:
-  providers:
-    opencode-go:
-      apiKeyEnv: OPENCODE_GO_API_KEY
-      displayName: OpenCode Go   # optional, shown in the toggle row
-      models:
-        - id: deepseek-v4-flash-vision-exp
-          name: DeepSeek V4 Flash Vision
-          contextWindow: 1000000
-          maxTokens: 384000
-          input: ["text", "image"]
-        - id: deepseek-v4-pro
-          name: DeepSeek V4 Pro
-          contextWindow: 1000000
-          maxTokens: 384000
-```
+The plugin uses six fixed stage names: 小难梁, 牢梁, 梁子, 梁圣, 梁神, 梁祖. The
+DSH model catalog decides what each stage selects.
 
 ## Install
 
-The package is a **bundle**: it ships `cordis.patch.yml`, so the profile
-declares it once and the launcher inserts its row.
+The package is a bundle. It ships `cordis.patch.yml`, so the profile declares
+the package once and the launcher inserts the row.
 
 ```sh
 dsh plugin --profile web add dsh-plugin-liang-calibrator
 ```
 
-The host half imports `@deepseek-ai/schemastery` for its `Config` schema, so a
-`link:` checkout needs its own install first (a registry install pulls it
-automatically):
+A registry install supplies the runtime dependency. A local `link:` checkout
+does not, so install it first:
 
 ```sh
 cd /path/to/liang && pnpm install
 ```
 
-then list the package in your profile's `package.json`
-(`$DSH_HOME/profiles/web/package.json`) under `dsh.profile.bundles`:
+Then add the package to `dsh.profile.bundles` in
+`$DSH_HOME/profiles/web/package.json`:
 
 ```json
 "dsh": { "profile": { "bundles": ["dsh-plugin-liang-calibrator"] } }
 ```
 
-and restart `dsh web`.
+Restart `dsh web`.
 
-> Do **not** also insert `- id: liang-calibrator` into `cordis.patch.yml` by
-> hand: one entry id may be declared once, and a duplicate fails the load.
+Do not also insert `- id: liang-calibrator` into `cordis.patch.yml` by hand.
+Declare one entry id only once. A duplicate stops the load.
+
+To remove the package, run
+`dsh plugin --profile web remove dsh-plugin-liang-calibrator` and delete the
+entry from `dsh.profile.bundles`.
+
+## Usage
+
+Click the model seat in the composer.
+
+1. Drag the bar.
+2. Release the bar.
+
+The bar snaps to the nearest stage and applies it. The portrait and the readout
+follow the pointer while you drag.
+
+Press a provider button to switch backend. The stage stays the same. Click the
+model row to open the plain list of all providers.
+
+After a selection settles, the menu stays open for the configured delay. Drag
+again to continue, or wait for it to close.
+
+Keyboard: focus the bar and use the arrow keys, Home, or End. Each step moves one
+stage.
 
 ## Configure
 
-The calibrator contributes a card to **Settings → General**:
+The plugin adds a card to **Settings → General**.
 
-- **渠道别名** — a row per provider, mapping a provider id to the short label the
-  backend toggle row prints. The provider list is read from the live model
-  catalog, so a renamed or added route needs no code change; a row whose
-  provider left the catalog keeps its own option instead of disappearing.
-- **选完后停留** — how long the menu stays open after a slider commit settles
-  (`dismissDelayMs`, milliseconds; 0 closes at once). Dragging again cancels the
-  pending close.
+- `backendAliases` (渠道别名): one row for each provider. The left field picks a
+  provider from the live model catalog. The right field sets the short label that
+  the provider button prints.
+- `dismissDelayMs` (选完后停留): delay in milliseconds after a selection settles.
+  The default is 3000. The value 0 closes the menu at once.
 
-Both fields are volatile `Config`, so the card writes through the stock settings
-form into the profile’s Cordis patch, and changes take effect without a restart.
-The card only appears while the Host serves this plugin’s namespace, i.e. when
-the profile composes `@deepseek-ai/dsh-settings` and
-`@deepseek-ai/dsh-client-ui-settings-general` (both ship with the default web
-profile). Without them the calibrator still runs on its built-in aliases.
+The alias map starts empty. The package ships no default labels, so you add every
+row yourself. Until you add a row, the provider buttons print the catalog names.
+Click **新增一行**, pick a provider, then type the label. A provider that leaves
+the catalog keeps its row.
 
-## How it works
+Both fields are volatile `Config`. The card writes them into the Cordis patch of
+the profile. The change applies without a restart.
 
-- **Host half** (`lib/index.js`): serves the 31 portrait keyframes under
-  `/liang-assets/frames/` through the profile's `webServer` service — no CDN,
-  no patched static server. It also declares the volatile `backendAliases` and
-  `dismissDelayMs` `Config` fields the browser half edits.
-- **Browser half** (`lib/client.js`): a standard `dsh.client` bundle that
-  registers the `conversation.input.model` slot at **priority −1**. Slot
-  rendering is priority-based ("lowest renders"), so the calibrator shadows the
-  stock selector without touching it — uninstalling the plugin restores the
-  original UI.
-- The portrait is drawn from per-level keyframes rather than a scrubbed video:
-  the stock static server has no HTTP Range support, so media-element seeking
-  silently fails; image keyframes work everywhere.
-- The effort bar is three parts: a **tube** (28px tall, radius-14 round ends), a
-  **colour bar**, and a **knob** (24px — narrower than the tube, drawn with an
-  inner 1px stroke and no outer shadow). The knob centre travels between the two
-  end-semicircle centres, so it insets by the tube radius (14), not its own. The
-  colour bar's left cap is pinned to the tube's inner start while its right cap
-  centre rides the knob, so at position 0 the bar is a perfect circle and at the
-  end it spans the whole tube — wrapping the knob the entire way.
-- Its palette follows [`dsh-codex-effort-slider`](https://www.npmjs.com/package/dsh-codex-effort-slider)
-  (Microqian2th): the fill runs blue → violet → deep purple, a nebula layer with a
-  2.4s sweep and stardust particles fades in with position, and the readout tints
-  with it. Dragging follows the pointer continuously and commits the nearest stage
-  on release; the visually hidden native range carries the combo positions so
-  keyboard and assistive access step whole levels. `prefers-reduced-motion` hides
-  the sweep and slows the particles rather than freezing them.
-- The port is checked against the reference's own exported helpers, not against a
-  transcription: `scripts/test-align.mjs` loads that bundle and compares palette,
-  energy curve, and particle field across the track. Geometry deliberately
-  diverges (24px knob inside a 28px tube) and is covered by the render test.
-- Requires `@deepseek-ai/dsh-client-ui-model-selection` (ships with the default
-  web profile) for the shared model directory service. On DSH `0.1.2-rc.1`+
-  the seat scope additionally injects `remote` / `remote.session`: the resolver
-  runs `directoryFor` behind the caller-ctx tracker, and without them the seat
-  entry crashes (`cannot get property "remote.session" without inject`),
-  abdicates, and the stock selector silently renders instead.
-- The bundle's own card — its 梁祖 icon, title, and description — comes from the
-  package manifest: `icon` points at a 128px WebP derived from `frame-30`, and
-  `locale/{en,zh}.json` carry `meta.title` / `meta.description`. The
-  configuration card itself lives in Settings, not on that page.
+The card appears only while the Host serves the settings namespace of the
+plugin. That needs `@deepseek-ai/dsh-settings` and
+`@deepseek-ai/dsh-client-ui-settings-general`. Without them the calibrator still
+runs, and the provider buttons print the catalog names.
 
-## Uninstall
+## The slider
 
-```sh
-dsh plugin --profile web remove dsh-plugin-liang-calibrator
-```
+The bar has three parts:
 
-(and drop the package from `dsh.profile.bundles`).
+| Part | Size | Behavior |
+| --- | --- | --- |
+| Tube | 28px tall, radius 14 at each end | The background. The two end semi-circles set the travel range. |
+| Colour bar | Same height as the tube | The left cap stays at the inner start of the tube. The right cap centre moves with the knob. |
+| Knob | 24px, inner 1px stroke, no outer shadow | The centre moves between the two end semi-circle centres. |
+
+The centre of the knob insets by the tube radius, not by its own radius. The
+colour bar is a circle at position 0 and spans the whole tube at position 30. It
+is wider than the knob, so it surrounds the knob at every position.
+
+The palette comes from
+[dsh-codex-effort-slider](https://www.npmjs.com/package/dsh-codex-effort-slider)
+by Microqian2th. The fill goes from blue to violet to deep purple. A nebula layer
+with a sweep and stardust particles appears with position. The readout takes the
+same tint. With `prefers-reduced-motion`, the sweep does not show and the
+particles move slowly.
+
+The portrait uses 31 keyframe images instead of a video. The stock static server
+answers no HTTP Range requests, so a video element cannot seek. Images work
+everywhere.
+
+## Compatibility
+
+- The plugin runs on DSH `0.2.0-rc.2`.
+- The shared model directory needs `@deepseek-ai/dsh-client-ui-model-selection`.
+  The default web profile ships it.
+- The seat scope injects `remote` and `remote.session`. The model directory
+  resolver reads them behind the caller context tracker. Without them the seat
+  entry stops and the stock selector shows instead.
+- The selector shadows the stock seat at slot priority −1. Slot rules render the
+  lowest priority, so the plugin needs no patch to the stock UI. Remove the
+  plugin and the stock selector returns.
+- The browser half reads the model catalog at `remote.session.modelCatalog`. It
+  also listens for `llm/adapters-updated` to refresh the provider list.
 
 ## Development
 
-Regenerate the browser bundle from an installed DSH checkout:
+Maintain `lib/client.js` by hand. There is no build step. Edit the file and
+restart `dsh web`.
+
+The earlier assembler, `scripts/assemble-client.py`, rebuilt `lib/client.js` from
+a patched DSH checkout. It cannot reproduce the current file and it overwrites
+it. Do not run it.
+
+`scripts/test-client.cjs` and `scripts/test-host.mjs` are historical too. They
+depend on a browser automation package and a fixed home directory path.
+
+Install the package first. That supplies `@deepseek-ai/schemastery` and React:
 
 ```sh
-python3 scripts/assemble-client.py /path/to/node_modules/@deepseek-ai [region.js]
+pnpm install
 ```
 
-The ModelSelect region is hand-integrated with the slider; the script renames
-and splices, then applies the multi-backend feature patches. Every patch must
-match the assembled text exactly once — if the DSH bundle's ModelSelect region
-has drifted, the script **aborts without writing** instead of silently dropping
-the integration. In that case port the integration to the new bundle first.
-
-Smoke tests (no browser needed for any of them):
+Run the smoke tests:
 
 ```sh
-node scripts/test-host.mjs
-node scripts/test-settings.mjs   # channel-alias wiring: form -> store -> Plugins entry
-node scripts/test-render.mjs     # server-renders the seat, the slider, and the settings card
-node scripts/test-align.mjs      # slider style vs the reference implementation (self-skips)
+node scripts/test-settings.mjs   # settings card wiring
+node scripts/test-render.mjs     # renders the seat, the slider, and the settings card
+node scripts/test-align.mjs      # slider palette against the reference bundle
 ```
 
-`test-settings.mjs` and `test-render.mjs` need the package installed
-(`pnpm install`), which is what pulls `@deepseek-ai/schemastery` and React.
-`test-align.mjs` reads `dsh-codex-effort-slider`'s bundle and skips unless one
-is present; point `LIANG_REFERENCE` at its `lib/client.js` to run it:
+`test-align.mjs` loads the bundle of `dsh-codex-effort-slider` and compares the
+exported helpers. The package is not vendored. The test skips unless you point
+it at a copy:
 
 ```sh
 LIANG_REFERENCE=/path/to/dsh-codex-effort-slider/lib/client.js node scripts/test-align.mjs
 ```
 
-## Portraits
+`preview/slider.html` is a standalone page for the slider geometry. Open it in a
+browser. It shows each part alone and lets you change the tube height, the knob
+diameter, and the position.
 
-`lib/assets/frames/frame-00.webp … frame-30.webp` derive from the
-[liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator)
-project's `public/frames`; `lib/assets/liang-icon.webp` is a 128px WebP derived
-from `frame-30.webp` (梁祖). Reuse or redistribution requires confirming you hold
-the relevant portrait and asset rights (see that project's README).
+## Thanks
+
+- [liang-intensity-calibrator](https://github.com/Lichtspektrum/liang-intensity-calibrator)
+  supplies the slider idea and the portraits.
+- [dsh-codex-effort-slider](https://www.npmjs.com/package/dsh-codex-effort-slider)
+  by Microqian2th supplies the palette and the particle design.
+
+## Contributing
+
+This is a personal fork. Open an issue for a question or a bug report.
+
+Before you send a change, run the three smoke tests above. Keep the package
+self-contained: the plugin must run with no build step.
 
 ## License
 
-MIT. The calibrator concept and portrait assets belong to their original
-authors — see above.
+[MIT](LICENSE) © dsh-plugin-liang-calibrator contributors
+
+The calibrator concept and the portrait assets belong to their original authors.
+See [Thanks](#thanks). Confirm the asset rights before you redistribute the
+frames in `lib/assets/frames/`.

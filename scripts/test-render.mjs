@@ -135,7 +135,7 @@ const combos = [
     view: 'page', t, save: async () => true,
     useLiangSettings: (selector) => selector(snapshot),
   }))
-  for (const part of ['dsh-liang-cfg', 'opencode-go', 'OpenCode Go', 'OCG', 'liang-dismiss-delay', 'dsh-liang-cfg-title', 'settings.resetAliases']) {
+  for (const part of ['dsh-liang-cfg', 'opencode-go', 'OpenCode Go', 'OCG', 'liang-dismiss-delay', 'dsh-liang-cfg-title']) {
     if (!markup.includes(part)) failures.push(`settings card: missing ${part}`)
   }
   if ((markup.match(/class="dsh-liang-cfg-row"/g) ?? []).length !== 2) failures.push('settings card: wrong row count')
@@ -153,7 +153,6 @@ const combos = [
     useLiangSettings: (selector) => selector({ status: 'ready', writable: true, rows: [], providers: [], dismissMs: 3000 }),
   }))
   if (!empty.includes('settings.noAliases')) failures.push('settings card empty: no empty-state hint')
-  if (!empty.includes('settings.resetAliases')) failures.push('settings card empty: no restore control')
 }
 
 // 3c. A busy slider keeps its range focusable: aria-disabled, never a real disabled
