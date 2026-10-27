@@ -132,7 +132,7 @@ everywhere.
 
 ## Compatibility
 
-- The plugin runs on DSH `0.2.0-rc.2`.
+- The plugin runs on DSH `0.2.1-rc.3` (verified on the rc line of 0.2.1).
 - The shared model directory needs `@deepseek-ai/dsh-client-ui-model-selection`.
   The default web profile ships it.
 - The seat scope injects `remote` and `remote.session`. The model directory
@@ -187,7 +187,7 @@ diameter, and the position.
 
 This is a personal fork. Open an issue for a question or a bug report.
 
-Before you send a change, run the three smoke tests above. Keep the package
+Before you send a change, run the four smoke tests above. Keep the package
 self-contained: the plugin must run with no build step.
 
 ## License

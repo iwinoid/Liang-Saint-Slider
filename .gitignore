@@ -2,3 +2,7 @@ node_modules/
 *.tgz
 screenshot-*.png
 .pnpm-store/
+*.log
+.env
+.env.*
+.DS_Store
