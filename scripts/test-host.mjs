@@ -17,13 +17,24 @@ const check = (label, condition, detail) => {
   if (!condition) failures.push(detail === undefined ? label : `${label} (${detail})`)
 }
 
+/** Minimal stand-in for the LlmRuntime the host hides models through. */
+class FakeLlm {
+  constructor() {
+    this.account = [{ id: 'deepseek-v4-pro' }, { id: 'deepseek-v4' }]
+    this.api = [{ id: 'deepseek-v4' }]
+  }
+  async listModels(provider) { return provider === 'account' ? this.account : this.api }
+}
+
 /** Minimal stand-in for the plugin context Cordis hands to `apply`. */
-function mount() {
+function mount(config, llm = new FakeLlm()) {
   const routes = new Map()
   const disposers = []
   const closed = []
   const ctx = {
     fiber: { marker: 'fiber' },
+    logger: { warn: () => {} },
+    llm,
     effect: (fn, label) => {
       const dispose = fn()
       disposers.push({ label, dispose })
@@ -45,8 +56,8 @@ function mount() {
       },
     },
   }
-  apply(ctx)
-  return { routes, disposers, closed, fiber: ctx.fiber, unmount: () => { for (const { dispose } of disposers) if (typeof dispose === 'function') dispose() } }
+  apply(ctx, config)
+  return { routes, disposers, closed, llm, fiber: ctx.fiber, unmount: () => { for (const { dispose } of disposers) if (typeof dispose === 'function') dispose() } }
 }
 
 /** Drive the mounted route handler and collect what it wrote. */
@@ -64,7 +75,9 @@ async function request(route, url, method = 'GET') {
 {
   check('name is stable', name === 'liang-calibrator', name)
   check('declares the webServer dependency', Array.isArray(inject) && inject.includes('webServer'))
+  check('declares the llm dependency', Array.isArray(inject) && inject.includes('llm'))
   const parsed = Config({})
+  check('hideModels defaults to empty', JSON.stringify(parsed.hideModels.get()) === '{}')
   check('alias map defaults to empty', JSON.stringify(parsed.backendAliases.get()) === '{}')
   check('linger defaults to 3000', parsed.dismissDelayMs.get() === 3000)
   let rejected = null
@@ -198,9 +211,33 @@ async function request(route, url, method = 'GET') {
   check('a correct layout does not throw', threw === null, threw === null ? undefined : String(threw))
 }
 
+// 10. Hiding models through the plugin's own config.
+{
+  const llm = new FakeLlm()
+  const mounted = mount({ hideModels: { account: ['deepseek-v4-pro'] } }, llm)
+  check('hidden model leaves the catalog', (await llm.listModels('account')).map((model) => model.id).join() === 'deepseek-v4')
+  check('an unlisted provider keeps its array', (await llm.listModels('api')) === llm.api)
+  mounted.unmount()
+  check('dispose restores the catalog', (await llm.listModels('account')).length === 2)
+  check('an unanswered hide map leaves the catalog alone', (await new FakeLlm().listModels('account')).length === 2)
+}
+
+// 11. A malformed hide map is ignored instead of breaking the catalog.
+{
+  const llm = new FakeLlm()
+  let threw = null
+  try {
+    mount({ hideModels: { account: 'deepseek-v4-pro', bad: [5], empty: [] } }, llm)
+  } catch (error) {
+    threw = error
+  }
+  check('a malformed hide map does not throw', threw === null, threw === null ? undefined : String(threw))
+  check('a malformed hide map leaves the catalog intact', (await llm.listModels('account')).length === 2)
+}
+
 if (failures.length > 0) {
   console.error('FAIL')
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: host half (9 groups)')
+console.log('PASS: host half (11 groups)')
