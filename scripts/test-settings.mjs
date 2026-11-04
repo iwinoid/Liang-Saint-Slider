@@ -112,6 +112,18 @@ function mountSettings(formValue) {
     === JSON.stringify([{ provider: 'opencode-go', alias: 'GO' }, { provider: 'opencode', alias: 'ZEN' }]))
 }
 
+// 1b. Hidden models come from the same form section.
+{
+  const { store } = mountSettings({ hideModels: { account: ['deepseek-v4-pro'] } })
+  check('hidden rows seeded', JSON.stringify(store.getSnapshot().hidden)
+    === JSON.stringify([{ provider: 'account', model: 'deepseek-v4-pro' }]))
+  const { store: bare } = mountSettings({ hideModels: { account: 'deepseek-v4-pro', bad: [5], empty: [] } })
+  check('a bare string counts as one model', JSON.stringify(bare.getSnapshot().hidden)
+    === JSON.stringify([{ provider: 'account', model: 'deepseek-v4-pro' }]))
+  check('an empty hide map starts empty', mountSettings({ hideModels: {} }).store.getSnapshot().hidden.length === 0)
+  check('a missing hide map starts empty', mountSettings({ backendAliases: {} }).store.getSnapshot().hidden.length === 0)
+}
+
 // 2. There are no built-in aliases: an unanswered namespace starts empty.
 {
   const { store } = mountSettings(undefined)
@@ -155,7 +167,7 @@ function mountSettings(formValue) {
           value: {
             groups: [
               { id: 'deepseek-official', name: 'DeepSeek', models: [] },
-              { id: 'opencode-go', name: 'OpenCode Go', models: [] },
+              { id: 'opencode-go', name: 'OpenCode Go', models: [{ id: 'muse', name: 'Muse' }, { id: 'flash', name: 'Flash' }] },
             ],
             failures: [],
           },
@@ -168,6 +180,8 @@ function mountSettings(formValue) {
   await flush()
   check('providers read from the catalog', store.getSnapshot().providers.length === 2)
   check('provider carries its display name', store.getSnapshot().providers[1]?.name === 'OpenCode Go')
+  check('models stored per provider', store.getSnapshot().models['opencode-go']?.length === 2)
+  check('a provider without models stores none', (store.getSnapshot().models['deepseek-official'] ?? []).length === 0)
   check('catalog refresh is subscribed', typeof subscribed === 'function')
   check('providers do not disturb the alias rows', store.getSnapshot().rows.length === 1)
 }
