@@ -105,9 +105,10 @@ function mountSettings(formValue) {
   const { registrations, store } = mountSettings({ backendAliases: { 'opencode-go': 'GO', opencode: 'ZEN' } })
   check('exactly one Settings card', registrations.length === 1)
   const [entry] = registrations
-  check('card lands in the General settings list', entry.options.name === 'settings.general.item')
-  check('card id is the settings namespace', entry.options.id === 'liang-calibrator')
-  check('card is ordered in the list', typeof entry.options.order === 'number')
+  check('card lands on the plugin row page', entry.options.name === 'plugins.row.config')
+  check('row key is package#row', entry.options.key === 'dsh-plugin-liang-calibrator#liang-calibrator')
+  check('card keeps the settings namespace', entry.options.id === 'liang-calibrator')
+  check('card has a display label', typeof entry.options.label === 'function' && entry.options.label() === 'settings.title')
   check('configured aliases seeded', JSON.stringify(store.getSnapshot().rows)
     === JSON.stringify([{ provider: 'opencode-go', alias: 'GO' }, { provider: 'opencode', alias: 'ZEN' }]))
 }
@@ -189,20 +190,25 @@ function mountSettings(formValue) {
 // 6. Save writes both fields and drops blank provider rows.
 {
   const { registrations, mutations } = mountSettings({ backendAliases: {} })
-  await registrations[0].options.inject().save([{ provider: 'a', alias: 'A' }, { provider: '', alias: 'ignored' }], 4500)
+  await registrations[0].options.inject().save(
+    [{ provider: 'a', alias: 'A' }, { provider: '', alias: 'ignored' }], 4500,
+    [{ provider: 'account', model: 'deepseek-v4-pro' }, { provider: 'account', model: 'deepseek-v4-pro' }, { provider: '', model: 'x' }, { provider: 'p', model: '' }],
+  )
   const ops = mutations.at(-1)
-  check('save writes both fields', ops?.length === 2 && ops.every((op) => op.op === 'set'))
+  check('save writes every field', ops?.length === 3 && ops.every((op) => op.op === 'set'))
   check('aliases target their field', JSON.stringify(ops?.[0].path) === JSON.stringify(['backendAliases']))
   check('blank provider rows are not persisted', JSON.stringify(ops?.[0].value) === JSON.stringify({ a: 'A' }))
   check('save carries the linger', JSON.stringify(ops?.[1].path) === JSON.stringify(['dismissDelayMs']) && ops[1].value === 4500)
+  check('hidden models are deduplicated and emptied', JSON.stringify(ops?.[2]) === JSON.stringify({ op: 'set', path: ['hideModels'], value: { account: ['deepseek-v4-pro'] } }))
 }
 
 // 6b. Saving an emptied editor writes an empty map, which the toggle row reads as "no aliases".
 {
   const { registrations, mutations } = mountSettings({ backendAliases: { a: 'A' } })
-  await registrations[0].options.inject().save([], 3000)
+  await registrations[0].options.inject().save([], 3000, [])
   const ops = mutations.at(-1)
   check('clearing every row writes an empty map', JSON.stringify(ops?.[0].value) === JSON.stringify({}))
+  check('clearing every hidden row writes an empty map', JSON.stringify(ops?.[2].value) === JSON.stringify({}))
 }
 
 // 7. The seat registers the shadowing entry, and its select reports the directory's

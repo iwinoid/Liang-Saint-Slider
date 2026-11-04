@@ -162,6 +162,23 @@ const combos = [
   if (!empty.includes('settings.noAliases')) failures.push('settings card empty: no empty-state hint')
 }
 
+// 3d. Hidden rows render their own selectors, and a model the catalog no longer
+//     offers stays visible so it can still be removed.
+{
+  const markup = render('settings card hidden', React.createElement(client.LiangSettingsCard, {
+    view: 'page', t, save: async () => true,
+    useLiangSettings: (selector) => selector({
+      status: 'ready', writable: true, rows: [], providers: [{ id: 'account', name: 'Account' }],
+      models: { account: [{ id: 'deepseek-v4', name: 'V4' }] },
+      hidden: [{ provider: 'account', model: 'deepseek-v4-pro' }], dismissMs: 3000,
+    }),
+  }))
+  for (const part of ['settings.hiddenTitle', 'settings.hiddenUnknown', 'settings.model', 'settings.addHidden']) {
+    if (!markup.includes(part)) failures.push(`settings card hidden: missing ${part}`)
+  }
+  if ((markup.match(/class="dsh-liang-cfg-row"/g) ?? []).length !== 1) failures.push('settings card hidden: wrong row count')
+}
+
 // 3c. A busy slider keeps its range focusable: aria-disabled, never a real disabled
 //     attribute, because disabling a focused control drops focus and blurs the card shut.
 {
