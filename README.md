@@ -31,6 +31,9 @@ slider also picks the model and the thinking effort.
 The plugin uses six fixed stage names: 小难梁, 牢梁, 梁子, 梁圣, 梁神, 梁祖. The
 DSH model catalog decides what each stage selects.
 
+The package also owns the model-hiding filter that used to ship separately as
+`dsh-model-filter`: the settings page hides catalog models for every selector.
+
 ## Install
 
 The package is a bundle. It ships `cordis.patch.yml`, so the profile declares
@@ -84,26 +87,38 @@ stage.
 
 ## Configure
 
-The plugin adds a card to **Settings → General**.
+The plugin's settings live on its own page: **Plugins → 滑动变祖器 → Configure**,
+opened from the control on the plugin's row.
 
 - `backendAliases` (渠道别名): one row for each provider. The left field picks a
   provider from the live model catalog. The right field sets the short label that
   the provider button prints.
 - `dismissDelayMs` (选完后停留): delay in milliseconds after a selection settles.
   The default is 3000. The value 0 closes the menu at once.
+- `hideModels` (隐藏模型): one row for each model to hide. The row picks a provider
+  and one of that provider's models from the live catalog. A model that leaves the
+  catalog keeps its row, marked as no longer in the catalog, so it can still be
+  removed.
 
-The alias map starts empty. The package ships no default labels, so you add every
-row yourself. Until you add a row, the provider buttons print the catalog names.
-Click **新增一行**, pick a provider, then type the label. A provider that leaves
-the catalog keeps its row.
+The alias map and the hidden list start empty. The package ships no default
+labels or hidden models, so you add every row yourself. Until you add an alias,
+the provider buttons print the catalog names. Click **新增一行** or
+**隐藏一个模型**, pick the values, then **保存**.
 
-Both fields are volatile `Config`. The card writes them into the Cordis patch of
-the profile. The change applies without a restart.
+All three fields are volatile `Config`. A save writes them into the Cordis patch
+of the profile and applies without a restart: the Host reloads the plugin and the
+catalog is filtered again.
 
-The card appears only while the Host serves the settings namespace of the
-plugin. That needs `@deepseek-ai/dsh-settings` and
-`@deepseek-ai/dsh-client-ui-settings-general`. Without them the calibrator still
-runs, and the provider buttons print the catalog names.
+Hiding is global. The Host removes the model from the catalog it serves, so every
+selector stops offering it, and a saved selection of that model falls back to the
+default. Provider routes, authentication, and calls are untouched: a hidden model
+that is already selected still works.
+
+The page appears only while the Host serves the settings namespace of the plugin
+and the Plugins page provides its slots. That needs `@deepseek-ai/dsh-settings`,
+`@deepseek-ai/dsh-client-ui-settings-general`, and
+`@deepseek-ai/dsh-client-ui-plugin-manager`. Without them the calibrator still
+runs; edit the profile patch to change the fields.
 
 ## The slider
 
@@ -132,7 +147,7 @@ everywhere.
 
 ## Compatibility
 
-- The plugin runs on DSH `0.2.1-rc.3` (verified on the rc line of 0.2.1).
+- The plugin runs on DSH `0.2.2-rc.1` with cordis 4.1.0.
 - The shared model directory needs `@deepseek-ai/dsh-client-ui-model-selection`.
   The default web profile ships it.
 - The seat scope injects `remote` and `remote.session`. The model directory
@@ -143,6 +158,9 @@ everywhere.
   plugin and the stock selector returns.
 - The browser half reads the model catalog at `remote.session.modelCatalog`. It
   also listens for `llm/adapters-updated` to refresh the provider list.
+- Hiding patches `listModels` on the prototype of `ctx.llm`. The host half injects
+  `llm`; if the prototype carries no `listModels`, the filter is skipped with a
+  warning and the catalog stays intact.
 
 ## Development
 
