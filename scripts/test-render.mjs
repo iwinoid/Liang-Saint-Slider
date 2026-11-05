@@ -173,8 +173,13 @@ const combos = [
       hidden: [{ provider: 'account', model: 'deepseek-v4-pro' }], dismissMs: 3000,
     }),
   }))
-  for (const part of ['settings.hiddenTitle', 'settings.hiddenUnknown', 'settings.model', 'settings.addHidden']) {
+  for (const part of ['settings.hiddenTitle', 'settings.model', 'settings.addHidden', 'deepseek-v4-pro']) {
     if (!markup.includes(part)) failures.push(`settings card hidden: missing ${part}`)
+  }
+  // The catalog the catalog page reads is already filtered, so a hidden model is
+  // absent from it by definition; the row must not claim it left the catalog.
+  if (markup.includes('settings.hiddenUnknown')) {
+    failures.push('settings card hidden: a hidden model is labelled as removed from the catalog')
   }
   if ((markup.match(/class="dsh-liang-cfg-row"/g) ?? []).length !== 1) failures.push('settings card hidden: wrong row count')
 }

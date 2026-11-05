@@ -222,17 +222,44 @@ async function request(route, url, method = 'GET') {
   check('an unanswered hide map leaves the catalog alone', (await new FakeLlm().listModels('account')).length === 2)
 }
 
+// 10b. The loader hands `apply` the schema-resolved config, whose volatile fields
+//      are references with a `get()`. Reading `Object.entries` of one hides nothing.
+{
+  const llm = new FakeLlm()
+  const resolved = Config({ hideModels: { account: ['deepseek-v4-pro'] } })
+  check('a resolved volatile field is a reference', typeof resolved.hideModels?.get === 'function')
+  const mounted = mount(resolved, llm)
+  check('a resolved config hides the model', (await llm.listModels('account')).map((model) => model.id).join() === 'deepseek-v4')
+  mounted.unmount()
+}
+
+// 10c. Saving the settings page is a volatile-only update: the loader rewrites the
+//      reference and never re-runs `apply`, so the filter must read it per call.
+{
+  const llm = new FakeLlm()
+  const resolved = Config({ hideModels: { account: ['deepseek-v4-pro'] } })
+  const mounted = mount(resolved, llm)
+  const write = Symbol.for('cosmokit.volatile.write')
+  resolved.hideModels[write]({ account: [] })
+  check('clearing the map unhides without remounting', (await llm.listModels('account')).length === 2)
+  resolved.hideModels[write]({ account: ['deepseek-v4'] })
+  check('a later save hides again without remounting', (await llm.listModels('account')).map((model) => model.id).join() === 'deepseek-v4-pro')
+  mounted.unmount()
+}
+
 // 11. A malformed hide map is ignored instead of breaking the catalog.
 {
   const llm = new FakeLlm()
   let threw = null
+  let mounted
   try {
-    mount({ hideModels: { account: 'deepseek-v4-pro', bad: [5], empty: [] } }, llm)
+    mounted = mount({ hideModels: { account: 'deepseek-v4-pro', bad: [5], empty: [] } }, llm)
   } catch (error) {
     threw = error
   }
   check('a malformed hide map does not throw', threw === null, threw === null ? undefined : String(threw))
   check('a malformed hide map leaves the catalog intact', (await llm.listModels('account')).length === 2)
+  mounted?.unmount()
 }
 
 if (failures.length > 0) {
