@@ -263,9 +263,70 @@ const combos = [
   if (!(KNOB_SIZE < TUBE_HEIGHT)) failures.push("geometry: the knob must be narrower than the tube")
 }
 
+// 9. The readout puts the stage and the level on one line, so the model
+//    description below them can use the whole row.
+{
+  const markup = render('effort slider readout', React.createElement(client.LiangEffortSlider, {
+    combos, currentIndex: 2, busy: false, onChoose: () => {},
+  }))
+  if (!markup.includes('class="dsh-liang-head"')) failures.push('readout: stage and level do not share a line')
+  if (markup.includes('dsh-liang-id')) failures.push('readout: the description is still boxed in beside the level')
+  if (!markup.includes('12/30')) failures.push('readout: the level indicator is missing or misplaced')
+  const head = markup.indexOf('dsh-liang-head')
+  const description = markup.indexOf('dsh-liang-combo')
+  if (!(head >= 0 && description > head)) failures.push('readout: the description does not follow the stage line')
+}
+
+// 10. The collapsed trigger paints its stage name with the same tint the card
+//     gives the model description, so the tint follows the slider position.
+{
+  const models = [
+    { id: 'a', name: 'Flash', reasoning: { defaultEffort: 'off', efforts: [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }, { id: 'max', name: 'Max' }] } },
+    { id: 'b', name: 'Pro', reasoning: { defaultEffort: 'off', efforts: [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }, { id: 'max', name: 'Max' }] } },
+  ]
+  const comboOf = (index) => {
+    const at = combos[index]
+    const model = models.find((entry) => entry.id === at.model)
+    return { model, effort: at.effort }
+  }
+  const seat = (index) => {
+    const { model, effort } = comboOf(index)
+    const directory = createSnapshotStore({
+      current: { provider: 'p', model: model.id, reasoningEffort: effort },
+      routable: true,
+      groups: [{ id: 'p', name: 'P', models }],
+      failures: [], status: 'ready', pending: null, error: null,
+    })
+    const aliases = createSnapshotStore({ status: 'ready', writable: true, rows: [] })
+    return render('model seat tint', React.createElement(client.LiangModelSelect, {
+      locked: false, available: true, directory, aliases, t, load: () => {}, select: async () => ({ ok: true }),
+    }))
+  }
+  const tintOf = (markup) => markup.match(/class="dsh-lm-triggerEffort"[^>]*style="color:([^"]+)"/)?.[1]
+  const low = tintOf(seat(1))
+  const high = tintOf(seat(5))
+  if (low === undefined) failures.push('trigger tint: the stage name carries no color')
+  if (high === undefined) failures.push('trigger tint: the stage name carries no color at the top')
+  if (low !== undefined && high !== undefined && low === high) failures.push('trigger tint: the color does not follow the position')
+  const off = tintOf(seat(0))
+  if (off !== 'var(--dsw-alias-label-tertiary)') failures.push('trigger tint: the untinted stage does not fall back to the card description color')
+  if (!seat(5).includes('梁祖')) failures.push('trigger tint: the stage name is missing from the trigger')
+}
+
+// 11. The menu card fades and scales on a non-linear curve in both directions.
+{
+  const sheet = injectedCss.join('')
+  for (const part of ['@keyframes dsh-lm-menuIn', '@keyframes dsh-lm-menuOut', 'dsh-lm-menuIn{', 'dsh-lm-menuOut{']) {
+    if (!sheet.includes(part)) failures.push(`menu animation: missing ${part}`)
+  }
+  if (!/dsh-lm-menuIn\{[^}]*cubic-bezier\(/.test(sheet)) failures.push('menu animation: the entrance is not eased')
+  if (!/dsh-lm-menuOut\{[^}]*cubic-bezier\(/.test(sheet)) failures.push('menu animation: the exit is not eased')
+  if (!sheet.includes('.dsh-lm-menuIn,.dsh-lm-menuOut{animation:none}')) failures.push('menu animation: reduced motion still animates')
+}
+
 if (failures.length > 0) {
   console.error('FAIL')
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: render smoke (8 groups)')
+console.log('PASS: render smoke (11 groups)')
