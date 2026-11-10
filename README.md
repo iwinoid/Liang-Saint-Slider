@@ -179,6 +179,7 @@ Run the tests:
 node scripts/test-host.mjs       # the asset route, traversal, and fiber disposal
 node scripts/test-settings.mjs   # settings card wiring and the seat inject face
 node scripts/test-render.mjs     # renders the seat, the slider, and the settings card
+node scripts/test-interaction.mjs  # drives open, close, and the linger through fake timers
 node scripts/test-align.mjs      # slider palette against the reference bundle
 ```
 
@@ -205,7 +206,7 @@ diameter, and the position.
 
 This is a personal fork. Open an issue for a question or a bug report.
 
-Before you send a change, run the four smoke tests above. Keep the package
+Before you send a change, run the five smoke tests above. Keep the package
 self-contained: the plugin must run with no build step.
 
 ## License

@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-liang-calibrator",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "滑动变祖器 — the liang-intensity-calibrator as the DeepSeek Harness model + thinking-effort slider, which also hides selected models from the host model catalog. Clicking the composer's model seat opens the 31-level calibrator; the six stages stay 1:1 per backend (官方 off/high/max, opencode-go minimal/high/max) with a quick backend toggle row.",
   "icon": "lib/assets/liang-icon.webp",
   "license": "MIT",
@@ -64,6 +64,6 @@
   },
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/client.js",
-    "test": "node scripts/test-host.mjs && node scripts/test-settings.mjs && node scripts/test-render.mjs && node scripts/test-align.mjs"
+    "test": "node scripts/test-host.mjs && node scripts/test-settings.mjs && node scripts/test-render.mjs && node scripts/test-interaction.mjs && node scripts/test-align.mjs"
   }
 }
