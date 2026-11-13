@@ -330,6 +330,11 @@ const combos = [
   if (!/dsh-lm-menuIn\{[^}]*cubic-bezier\(/.test(sheet)) failures.push('menu animation: the entrance is not eased')
   if (!/dsh-lm-menuOut\{[^}]*cubic-bezier\(/.test(sheet)) failures.push('menu animation: the exit is not eased')
   if (!sheet.includes('.dsh-lm-menuIn,.dsh-lm-menuOut{animation:none}')) failures.push('menu animation: reduced motion still animates')
+  // The card holds the portrait, the slider, the backend row, the model row and
+  // the team switch; a height that fits only the old content clips the last row.
+  const menuRule = sheet.match(/\.dsh-lm-menu\{[^}]*\}/)?.[0] ?? ''
+  if (!/max-height:min\((5[6-9]\d|6\d\d)px/.test(menuRule)) failures.push('menu fit: the card is too short for its own rows')
+  if (!menuRule.includes('overflow-y:auto')) failures.push('menu fit: content taller than the card is clipped instead of scrolling')
 }
 
 // 12. The card carries the agent-workforce switch the stock selector used to
