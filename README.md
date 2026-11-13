@@ -82,6 +82,11 @@ model row to open the plain list of all providers.
 After a selection settles, the menu stays open for the configured delay. Drag
 again to continue, or wait for it to close.
 
+The card also carries the agent-workforce switch the stock selector offers. It
+appears when the agent-team client plugin is composed. Turning it off asks for
+confirmation once the session has used a model, because disabling teamwork
+mid-conversation costs cache reuse. A child session shows no switch.
+
 Keyboard: focus the bar and use the arrow keys, Home, or End. Each step moves one
 stage.
 
@@ -158,6 +163,10 @@ everywhere.
   plugin and the stock selector returns.
 - The browser half reads the model catalog at `remote.session.modelCatalog`. It
   also listens for `llm/adapters-updated` to refresh the provider list.
+- The teamwork switch drives `remote.agentTeams.setEnabled`, the same Remote the
+  stock selector uses. A shadowing seat may not render the stock
+  `conversation.input.model.options` slot (another entry declared it), so the
+  card draws its own row.
 - Hiding patches `listModels` on the prototype of `ctx.llm`. The host half injects
   `llm`; if the prototype carries no `listModels`, the filter is skipped with a
   warning and the catalog stays intact.

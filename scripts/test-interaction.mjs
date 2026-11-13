@@ -153,9 +153,12 @@ const directory = createSnapshotStore({
   failures: [], status: 'ready', pending: null, error: null,
 })
 const aliases = createSnapshotStore({ status: 'ready', writable: true, rows: [], dismissMs: 3000 })
+const teamActions = createSnapshotStore({ setEnabled: async () => null, pending: false, error: null })
 const props = {
   locked: false, available: true, directory, aliases,
   t: (key) => key, load: () => {}, select: async () => ({ ok: true }),
+  sessionId: 's1', useProjection: (name) => name === 'agentTeam' ? { enabled: true } : undefined,
+  useSessions: () => false, teamActions,
 }
 
 /** Render until state settles; returns the last element tree. */
@@ -188,6 +191,8 @@ check('the seat renders a trigger', triggerOf(tree) !== undefined)
 triggerOf(tree).props.onClick()
 tree = renderSeat()
 check('the trigger opens the card', menuOf(tree) !== undefined)
+const teamRow = find(tree, (element) => element.props.team !== undefined && typeof element.type === 'function')
+check('the open card carries the agent-team switch', teamRow !== undefined && teamRow.props.team.enabled === true)
 check('the card enters with the animated class', classOf(tree).includes('dsh-lm-menuIn'))
 
 // 2. Closing runs one exit pass and then unmounts.

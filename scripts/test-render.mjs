@@ -58,7 +58,15 @@ const require = (specifier) => {
         Fragment: React.Fragment,
       }
     case '@deepseek-ai/dsh-client-ui-primitives':
-      return new Proxy({}, { get: (_target, name) => (name === 'Toast' ? () => null : () => null) })
+      return new Proxy({}, {
+        get: (_target, name) => name === 'Switch'
+          ? (props) => React.createElement('span', {
+            'data-team-switch': props.checked === true ? 'on' : 'off',
+            'data-team-disabled': props.disabled === true ? 'yes' : 'no',
+            'data-team-label': props.label,
+          })
+          : () => null,
+      })
     case '@deepseek-ai/dsh-client-store':
       return { createSnapshotStore }
     default:
@@ -324,9 +332,28 @@ const combos = [
   if (!sheet.includes('.dsh-lm-menuIn,.dsh-lm-menuOut{animation:none}')) failures.push('menu animation: reduced motion still animates')
 }
 
+// 12. The card carries the agent-workforce switch the stock selector used to
+//     own, and it stays absent when the agent-team projection is not composed.
+{
+  const actions = createSnapshotStore({ setEnabled: async () => null, pending: false, error: null })
+  const row = (team) => React.createElement(client.LiangTeamMode, {
+    team, modelSelection: undefined, actions, busy: false, sessionId: 's1', t,
+  })
+  const markup = render('team row', row({ enabled: true }))
+  if (!markup.includes('data-team-switch="on"')) failures.push('team mode: the switch is missing or off')
+  if (!markup.includes('data-team-label="team.label"')) failures.push('team mode: the switch has no label')
+  if (markup.includes('team.disableHint')) failures.push('team mode: the disable warning shows before the switch is turned off')
+  const absent = renderToStaticMarkup(row(undefined))
+  if (absent !== '') failures.push('team mode: the row renders without the agent-team projection')
+  const child = renderToStaticMarkup(React.createElement(client.LiangTeamMode, {
+    team: { enabled: true }, modelSelection: undefined, actions, busy: false, sessionId: 's1', listedChild: true, t,
+  }))
+  if (child !== '') failures.push('team mode: a child session shows the switch')
+}
+
 if (failures.length > 0) {
   console.error('FAIL')
   for (const failure of failures) console.error('  -', failure)
   process.exit(1)
 }
-console.log('PASS: render smoke (11 groups)')
+console.log('PASS: render smoke (12 groups)')
